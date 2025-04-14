@@ -1,13 +1,9 @@
 
 # 📦 Qtit – Terminal TUI for qBittorrent Seedboxes
 
-Qtit is a beautiful, interactive terminal UI for managing your qBittorrent client — especially handy for remote seedboxes. It offers real-time torrent status updates, keyboard navigation, and a powerful Vim-style command interface.
+Qtit is a interactive terminal UI for managing your qBittorrent client — especially handy for remote seedboxes. It offers real-time torrent status updates, keyboard navigation, and a powerful Vim-style command interface.
 
----
 
-![Qtit Screenshot](./media/recording.mp4)
-
----
 
 ## ✨ Features
 
@@ -107,6 +103,19 @@ Use `:` to enter any of the following:
 - Go standard libs: `net/http`, `cookiejar`, `encoding/json`
 
 ---
+
+![Qtit Screenshot](./media/1.png)
+
+---
+
+![Qtit Screenshot](./media/2.png)
+
+---
+
+![Qtit Screenshot](./media/3.png)
+
+---
+
 
 ## 📄 License
 
