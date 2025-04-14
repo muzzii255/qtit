@@ -1,14 +1,10 @@
-// termorrent-remote/main.go
 package main
 
 import (
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
-	"io"
 	"os"
-
+	"qtit/dashboard"
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,18 +25,13 @@ var (
 )
 
 
-type Qbit struct {
-	Url string
-	Username string
-	Password string
-}
-
 
 
 type model struct {
 	focusIndex     int
 	inputs         []textinput.Model
 	cursorMode     cursor.Mode
+	width   int
 }
 
 
@@ -53,6 +44,7 @@ func (m model) Init() tea.Cmd {
 func initialModel() model {
 	m := model{
 		inputs: make([]textinput.Model, 3),
+		width: 300,
 	}
 	var t textinput.Model
 	for i := range m.inputs {
@@ -120,6 +112,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Batch(cmds...)
 		}
+	
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		return m, nil
+	
+	
 	}
 
 	cmd := m.updateInputs(msg)
@@ -161,46 +159,6 @@ func (m model) View() string {
 }
 
 
-func loginToQbit(host, username, password string) (*http.Cookie, error) {
-	loginURL := fmt.Sprintf("%s/api/v2/auth/login", strings.TrimRight(host, "/"))
-	form := url.Values{}
-	form.Add("username", username)
-	form.Add("password", password)
-	resp, err := http.PostForm(loginURL, form)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	for _, c := range resp.Cookies() {
-		if c.Name == "SID" {
-			return c, nil
-		}
-	}
-	return nil, fmt.Errorf("SID cookie not found")
-}
-
-func addMagnet(host, magnet string, cookie *http.Cookie) error {
-	addURL := fmt.Sprintf("%s/api/v2/torrents/add", strings.TrimRight(host, "/"))
-	form := url.Values{}
-	form.Set("urls", magnet)
-	req, err := http.NewRequest("POST", addURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	req.AddCookie(cookie)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("Status %d: %s", resp.StatusCode, string(body))
-	}
-	return nil
-}
-
 func main() {
 	p := tea.NewProgram(initialModel())
 	fmodel, err := p.Run()
@@ -214,18 +172,16 @@ func main() {
 			os.Exit(1)
 	}
 
-	qbitCreds := Qbit{
+	qbitCreds := dashboard.Qbit{
 		Url: finalModel.inputs[0].Value(),
 		Username: finalModel.inputs[1].Value(),
 		Password: finalModel.inputs[2].Value(),
 	}
 	
-	cookie, err := loginToQbit(qbitCreds.Url, qbitCreds.Username, qbitCreds.Password)
-	if err != nil{
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	fmt.Println(cookie)
+	
+	
+	dash := dashboard.New(qbitCreds)
+	tea.NewProgram(dash).Run()
 	
 	
 	
