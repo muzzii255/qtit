@@ -1,0 +1,171 @@
+<div class='bootstrap'>
+  <div class='modal-header'>
+    <h5 class='modal-title'>Add Existing Staff</h5>
+
+  </div>
+</div>
+
+
+<script>
+//<![CDATA[
+  window['staffNameSelected'] = function staffNameSelected(item_id) {
+    $('existing_id').value = item_id;
+    jQuery.ajax({
+      url: 'https://abrams-law-group.mycase.com/court_cases/case_rate_plan_rate_for_user',
+      type: 'GET',
+      data: { user_id: item_id, court_case_id: 2480625 },
+      success: function(data) {
+        jQuery('#default_rate').val(data.default_rate);
+        jQuery('#rate_plan_rate').val(data.rate_plan_rate);
+        jQuery('#existing_id').trigger('change');
+      },
+    });
+  }
+
+//]]>
+</script>
+<div class='popup_content popup_edit' style='overflow: visible; max-height: none; min-height: 355px;'>
+  <div class='text-start''>
+    <form class="edit_court_case" id="user_link_form" action="https://abrams-law-group.mycase.com/court_cases/2480625/add_staff_link" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="put" autocomplete="off" /><input type="hidden" name="authenticity_token" value="Iefu_zdnvSX09MowvvYtM7SpmzCg4aUL05lmvawufiBgg2ZtCCkMFjzvIXTeJLfZMpDxjkzFQ3cWuthsS0y12Q" autocomplete="off" />
+        <input type="hidden" name="existing_id" id="existing_id" value="" autocomplete="off" />
+
+      <input type="hidden" name="default_rate" id="default_rate" value="" autocomplete="off" />
+      <input type="hidden" name="rate_plan_rate" id="rate_plan_rate" value="" autocomplete="off" />
+
+      <table class='form' style='width: 100%;'>
+        <tr>
+          <th>Staff Link</th>
+          <td>
+            <div id='existing_user' class='clearfix '>
+
+<div style='clear: both; float: left; position: relative;'>
+  <input type="text" name="lawyer_search_name" id="lawyer_search_name" value="" style="padding-left: 25px; width: 407px; background-image: url(https://assets.mycase.com/packs/svg/table_icons/spyglass-4aecfe94cc.svg); background-position: 4px 6px; background-repeat: no-repeat;" />
+
+  <div id='lawyer_search_spinner' style='display: none; position: absolute; top: 7px; right: 5px;'>
+    <img style="vertical-align: middle;" src="https://assets.mycase.com/packs/retina/ajax_arrows-0ba8e6a4d4.gif" />
+  </div>
+</div>
+<div id='lawyer_browse_all' style="float: left; margin: 9px 0 0 5px;">
+  <a id="browse_all_lawyers" href="#" onclick="showAllLawyersAutocomplete();; return false;">Browse All</a>
+</div>
+
+<script>
+//<![CDATA[
+
+  window['showAllLawyersAutocomplete'] = function showAllLawyersAutocomplete() {
+    jQuery("#lawyer_search_name").categoryimagecomplete( "search", "browse|all" );
+    jQuery("#lawyer_search_name").focus();
+  }
+
+  jQuery(function() {
+    makeStandardCategoryImageComplete("#lawyer_search_name",
+                                      '#lawyer_search_spinner',
+                                      "https://abrams-law-group.mycase.com/contacts/attorneys/autocomplete",
+                                      staffNameSelected);
+  });
+
+
+//]]>
+</script>
+            </div>
+          </td>
+        </tr>
+
+
+        <tr>
+          <th style='border-top: 1px solid #cccccc;'>Sharing</th>
+          <td style='padding-top: 12px !important; border-top: 1px solid #cccccc; '>
+            <label id="user_link_share_events_label">
+              <input type="checkbox" name="user_link_share_events" id="user_link_share_events" />
+              Add all case events to this user's calendar
+            </label>
+
+            <br />
+
+            <label id="user_link_share_read_label">
+              <input type="checkbox" name="user_link_share_read" id="user_link_share_read" />
+              Automatically mark all items as read
+            </label>
+          </td>
+        </tr>
+
+
+          <tr>
+            <th>Case Rate</th>
+            <td>
+              <div class='field' style='float: left;'>
+                 <select name="rate_type" id="rate_type_option" class="col-12 form-select"><option value="case">Case Rate</option>
+<option value="default">Default Rate</option></select>
+              </div>
+              <div class='field' style='float: left; margin-left: 15px;'>
+                <input style="width: 75px;" id="rate_type_value" type="text" name="court_cases_user[default_rate]" />
+              </div>
+              <div style='float: left; margin-left: 5px; margin-top: 10px;'>
+                / hr
+              </div>
+              <div style='clear:both;'></div>
+            </td>
+          </tr>
+
+
+        <tr>
+          <th></th>
+          <td>It may take a few minutes for the newly added user to see linked events and documents.</td>
+        </tr>
+      </table>
+</form>  </div>
+</div>
+
+<div class='popup_gray_footer'>
+  <div style='float:right;'>
+    <div id='link_button'>
+      <a class="btn btn-cta-primary" onclick="addStaffLink()" href="/court_cases/2480625/case_link">Add Staff</a>
+    </div>
+
+
+    <div id='adding_box' style='display: none; width: 150px; text-align: center; height: 28px; padding-top: 7px;' class='standard adding '>
+      <img style="vertical-align: middle;" class="retina" src="https://assets.mycase.com/packs/retina/ajax_arrows-0ba8e6a4d4.gif" width="16" height="16" /> <span id='adding_box_text' style='line-height: 16px;'>Saving...</span>
+    </div>
+
+  </div>
+  <div style='clear:both'></div>
+</div>
+
+<script>
+//<![CDATA[
+
+  apply_hints();
+
+
+  function addStaffLink() {
+    const form = jQuery('#user_link_form');
+    jQuery.ajax({
+      url: form.attr('action'),
+      type: 'PUT',
+      data: form.serialize(),
+      dataType: 'html',
+      beforeSend: function() {
+        jQuery('#link_button').hide();
+        jQuery('#adding_box').show();
+      },
+      success: function() {
+        refresh_page();
+        jQuery.facebox.close();
+        showFlashMessage('Staff member has been linked to case');
+      },
+      error: function(xhr) {
+        if(xhr.status === 403) {
+          jQuery.facebox.close();
+          showErrorMessage('Permission Denied')
+        } else if(xhr.status === 400) {
+          jQuery('#facebox-content').html(xhr.responseText);
+          jQuery('#link_button').show();
+          jQuery('#adding_box').hide();
+        }
+      },
+    });
+  }
+
+//]]>
+</script>
+<script src="https://assets.mycase.com/packs/court_cases/update_rate_fields-a99f76310decc615a2a1.js"></script>
