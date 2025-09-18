@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-
-	// "net/url"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +15,8 @@ import (
 )
 
 type tickMsg struct{}
+
+type fileTickMsg struct{}
 
 type Model struct {
 	httpClient  *http.Client
@@ -30,6 +30,10 @@ type Model struct {
 	statusMessage string
 	statusStyle lipgloss.Style
 	width int
+
+	showFilesPanel bool
+	files          []TorrentFile
+	prevSelected   int
 }
 
 var (
@@ -67,7 +71,7 @@ func New(qb Qbit) Model {
 		os.Exit(1)
 	}
 
-	torrents, err := FetchTorrents(client, qb.Url)
+	torrents, _ := FetchTorrents(client, qb.Url)
 
 	p := paginator.New()
 	p.Type = paginator.Dots
@@ -87,6 +91,9 @@ func New(qb Qbit) Model {
 		commandMode: false,
 		statusMessage: "no activity yet",
 		width: 500,
+		showFilesPanel: false,
+		files: nil,
+		prevSelected: 0,
 	}
 }
 
@@ -100,10 +107,17 @@ func tick() tea.Cmd {
 	})
 }
 
+func fileTick() tea.Cmd {
+	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
+		return fileTickMsg{}
+	})
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	currentPage := m.paginator.Page
+	prevSelected := m.selected
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -173,6 +187,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 						
 					}
+				case "files":
+					items := m.pageItems()
+					if len(items) > 0 {
+						m.showFilesPanel = true
+						files, err := FetchTorrentFiles(m.httpClient, m.host, items[m.selected].Hash)
+						if err != nil {
+							m.statusMessage = fmt.Sprintf("Error fetching files: %s", err.Error())
+							m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+						} else {
+							m.files = files
+							m.statusMessage = fmt.Sprintf("files: %s", items[m.selected].Name)
+							m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+						}
+						return m, fileTick()
+					}
 				}
 				updatedTorrents, err := FetchTorrents(m.httpClient, m.host)
 				if err == nil {
@@ -183,13 +212,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.command.SetValue("")
 			}
 
-			
 			if msg.Type == tea.KeyEsc {
 				m.commandMode = false
 				m.command.SetValue("")
 			}
 
 			return m, cmd
+		}
+
+		if msg.String() == "f" {
+			items := m.pageItems()
+			if len(items) > 0 {
+				m.showFilesPanel = true
+				m.statusMessage = fmt.Sprintf("files: %s", items[m.selected].Name)
+				m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+				files, err := FetchTorrentFiles(m.httpClient, m.host, items[m.selected].Hash)
+				if err != nil {
+					m.statusMessage = fmt.Sprintf("Error fetching files: %s", err.Error())
+					m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+				} else {
+					m.files = files
+				}
+				return m, fileTick()
+			}
+		}
+		if msg.String() == "esc" && m.showFilesPanel {
+			m.showFilesPanel = false
+			return m, nil
 		}
 
 		switch msg.String() {
@@ -218,14 +267,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		return m, nil
-	
-		
+
 	case tickMsg:
 		torrents, err := FetchTorrents(m.httpClient, m.host)
 		if err == nil {
 			m.torrents = torrents
 		}
 		return m, tick()
+	case fileTickMsg:
+		if m.showFilesPanel {
+			items := m.pageItems()
+			if len(items) > 0 {
+				files, err := FetchTorrentFiles(m.httpClient, m.host, items[m.selected].Hash)
+				if err != nil {
+					m.statusMessage = fmt.Sprintf("Error fetching files: %s", err.Error())
+					m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+				} else {
+					m.files = files
+				}
+			}
+			return m, fileTick()
+		}
+		return m, nil
 
 	}
 
@@ -238,6 +301,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selected = 0
 		m.prevPage = m.paginator.Page
 	}
+
+	if m.showFilesPanel && (currentPage != m.paginator.Page || prevSelected != m.selected) {
+		items := m.pageItems()
+		if len(items) > 0 {
+			files, err := FetchTorrentFiles(m.httpClient, m.host, items[m.selected].Hash)
+			if err != nil {
+				m.statusMessage = fmt.Sprintf("Error fetching files: %s", err.Error())
+				m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+			} else {
+				m.files = files
+			}
+		}
+	}
+
+	m.prevSelected = m.selected
 
 	return m, cmd
 }
@@ -297,11 +375,47 @@ func (m Model) View() string {
 
 		cmdInput := m.command.View()
 
-		// Combine and style
 		cmdBox := box.Render(prompt + "\n" + cmdInput)
 		b.WriteString(cmdBox + "\n")
 	}
-	controls := subtleStyle.Render("↑↓ Navigate  ←→ Pages  : Commands  Q Quit")
+
+	if m.showFilesPanel {
+		items := m.pageItems()
+		var header string
+		if len(items) > 0 {
+			t := items[m.selected]
+			shortHash := t.Hash
+			if len(shortHash) > 12 {
+				shortHash = shortHash[:12]
+			}
+			header = fmt.Sprintf("FILES — %s (%s)", TruncateName(t.Name, 60), shortHash)
+		} else {
+			header = "FILES — no torrent selected"
+		}
+
+		box := lipgloss.NewStyle().
+			Foreground(fgColor).
+			Background(lipgloss.Color("#1e222a")).
+			Padding(0, 1).
+			MarginTop(1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(accentColor)
+
+		nameWidth := 60
+		fileHeader := fmt.Sprintf("  %-5s  %-60s  %-10s  %-8s  %-8s  %-6s", "INDEX", "NAME", "SIZE", "PROG", "PRIOR", "SEED")
+		var rows strings.Builder
+		rows.WriteString(fileHeader + "\n")
+		for _, f := range m.files {
+			name := TruncateName(f.Name, nameWidth)
+			rows.WriteString(fmt.Sprintf("  %-5d  %-60s  %-10s  %-8s  %-8d  %-6s\n",
+				f.Index, name, FormatSize(f.Size), FormatPercent(f.Progress), f.Priority, FormatBoolPtr(f.IsSeed)))
+		}
+
+		panel := box.Render(header + "\n" + rows.String())
+		b.WriteString(panel + "\n")
+	}
+
+	controls := subtleStyle.Render("↑↓ Navigate  ←→ Pages  : Commands  F Files  Esc Close  Q Quit")
 	b.WriteString(controls)
 	
 	if m.statusMessage != "" {
