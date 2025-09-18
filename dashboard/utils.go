@@ -11,6 +11,7 @@ func formatSpeed(bytes int) string {
 	}
 	return fmt.Sprintf("%.1f KB/s", float64(bytes)/1024)
 }
+
 func TruncateName(name string, max int) string {
 	if len(name) <= max {
 		return name
@@ -21,6 +22,9 @@ func TruncateName(name string, max int) string {
 	return name[:max-3] + "..."
 }
 
+func FormatPercent(p float64) string {
+	return fmt.Sprintf("%.2f%%", p*100)
+}
 
 func formatETA(seconds int) string {
 	if seconds < 0 || seconds == 8640000 {
@@ -34,7 +38,6 @@ func formatETA(seconds int) string {
 	}
 	return fmt.Sprintf("%dm", m)
 }
-
 
 func FormatAddedOn(ts int) string {
 	if ts == 0 {
@@ -56,4 +59,14 @@ func FormatSize(size int) string {
 	default:
 		return fmt.Sprintf("%d B", size)
 	}
+}
+
+func FormatBoolPtr(b *bool) string {
+	if b == nil {
+		return "—"
+	}
+	if *b {
+		return "true"
+	}
+	return "false"
 }
