@@ -32,34 +32,15 @@ type Model struct {
 	width int
 }
 
-var (
-	bgColor      = lipgloss.Color("#282c34")
-	fgColor      = lipgloss.Color("#abb2bf")
-	accentColor  = lipgloss.Color("#61afef")
-	successColor = lipgloss.Color("#98c379")
 
-	baseStyle = lipgloss.NewStyle().
-			Foreground(fgColor)
-
-	headerStyle = lipgloss.NewStyle().
-			Foreground(accentColor).
-			Bold(true)
-
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(successColor).
-			Bold(true)
-
-	subtleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#5c6370"))
-)
 
 func New(qb Qbit) Model {
 	ti := textinput.New()
 	ti.Placeholder = ":command"
 	ti.Prompt = ":"
 	ti.Width = 30
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(accentColor)
-	ti.TextStyle = lipgloss.NewStyle().Foreground(fgColor)
+	ti.PromptStyle = CommandPromptStyle
+	ti.TextStyle = CommandTextStyle
 
 	client, err := LoginToQbit(qb.Url, qb.Username, qb.Password)
 	if err != nil {
@@ -72,8 +53,8 @@ func New(qb Qbit) Model {
 	p := paginator.New()
 	p.Type = paginator.Dots
 	p.PerPage = 8
-	p.ActiveDot = lipgloss.NewStyle().Foreground(accentColor).Render("•")
-	p.InactiveDot = lipgloss.NewStyle().Foreground(lipgloss.Color("#5c6370")).Render("·")
+	p.ActiveDot = PaginatorActiveDot.Render("•")
+	p.InactiveDot = PaginatorInactiveDot.Render("·")
 	p.SetTotalPages(len(torrents))
 
 	return Model{
@@ -122,10 +103,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						err := AddMagnet(m.httpClient, m.host, magnet)
 						if err != nil {
 							m.statusMessage = fmt.Sprintf("Error adding magnet: %s",err.Error())
-							m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+							m.statusStyle = StatusError
 						} else {
 							m.statusMessage = "magnet added!"
-							m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+							m.statusStyle = StatusSuccess
 							m.torrents, _ = FetchTorrents(m.httpClient, m.host)
 						}
 					}
@@ -136,20 +117,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					err := PostTorrentAction(m.httpClient, m.host, "stop", url.Values{"hashes": {hash}})
 					if err != nil{
 						m.statusMessage = fmt.Sprintf("%s error stopping!, error: %s", name,err.Error())
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+						m.statusStyle = StatusError
 					}else{
 						m.statusMessage = fmt.Sprintf("%s torrent stopped!", name)
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+						m.statusStyle = StatusSuccess
 						
 					}
 				case "start":
 					err := PostTorrentAction(m.httpClient, m.host, "start", url.Values{"hashes": {hash}})
 					if err != nil{
 						m.statusMessage = fmt.Sprintf("%s error starting!, error: %s", name,err.Error())
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+						m.statusStyle = StatusError
 					}else{
 						m.statusMessage = fmt.Sprintf("%s torrent started!", name)
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+						m.statusStyle = StatusSuccess
 						
 					}
 				case "delete":
@@ -157,20 +138,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					
 					if err != nil{
 						m.statusMessage = fmt.Sprintf("%s error deleting!, error: %s", name,err.Error())
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+						m.statusStyle = StatusError
 					}else{
 						m.statusMessage = fmt.Sprintf("%s torrent deleted!", name)
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+						m.statusStyle = StatusSuccess
 						
 					}
 				case "recheck":
 					err := PostTorrentAction(m.httpClient, m.host, "recheck", url.Values{"hashes": {hash}})
 					if err != nil{
-						m.statusMessage = fmt.Sprintf("%s error deleting!, error: %s", name,err.Error())
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+						m.statusMessage = fmt.Sprintf("%s error rechecking!, error: %s", name,err.Error())
+						m.statusStyle = StatusError
 					}else{
-						m.statusMessage = fmt.Sprintf("%s torrent deleted!", name)
-						m.statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+						m.statusMessage = fmt.Sprintf("%s torrent rechecked!", name)
+						m.statusStyle = StatusSuccess
 						
 					}
 				}
@@ -246,7 +227,7 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	centered := lipgloss.Place(10, 1, lipgloss.Center, lipgloss.Center,
-		headerStyle.Render("Qtit v1.0 — Connected to: "+m.host),
+		HeaderStyle.Render("Qtit v1.0 — Connected to: "+m.host),
 	)
 	b.WriteString(centered + "\n")
 	
@@ -270,7 +251,7 @@ func (m Model) View() string {
 			t.Leech, t.Private, t.ForceStart, t.SuperSeeding)
 
 		if i == m.selected {
-			line = "› " + selectedStyle.Render(line)
+			line = "› " + SelectedStyle.Render(line)
 		} else {
 			line = "  " + line
 		}
@@ -283,17 +264,9 @@ func (m Model) View() string {
 	pagination := "  " + m.paginator.View()
 	b.WriteString(pagination + "\n\n")
 	if m.commandMode {
-		box := lipgloss.NewStyle().
-			Foreground(fgColor).
-			Background(lipgloss.Color("#1e222a")).
-			Padding(0, 1).
-			MarginTop(1).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(accentColor)
+		box := PanelStyle
 
-		prompt := lipgloss.NewStyle().
-			Foreground(accentColor).
-			Render("COMMAND MODE")
+		prompt := CommandPromptStyle.Render("COMMAND MODE")
 
 		cmdInput := m.command.View()
 
@@ -301,7 +274,7 @@ func (m Model) View() string {
 		cmdBox := box.Render(prompt + "\n" + cmdInput)
 		b.WriteString(cmdBox + "\n")
 	}
-	controls := subtleStyle.Render("↑↓ Navigate  ←→ Pages  : Commands  Q Quit")
+	controls := SubtleStyle.Render("↑↓ Navigate  ←→ Pages  : Commands  Q Quit")
 	b.WriteString(controls)
 	
 	if m.statusMessage != "" {
